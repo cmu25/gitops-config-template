@@ -1,0 +1,21 @@
+name: Bootstrap
+on:
+  workflow_dispatch:
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Replace placeholders
+        run: |
+
+      - name: Testing bootstrap success
+        run: |
+
+      - name: Remove bootstrap workflow
+        run: |

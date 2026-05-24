@@ -1,0 +1,6 @@
+name: Bootstrap
+on:
+  repository_dispatch:
+    types: [image-update]
+jobs:
+  update-image-tag:
