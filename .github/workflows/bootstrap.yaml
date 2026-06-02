@@ -1,6 +1,11 @@
 name: Bootstrap
+
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
+
 jobs:
   bootstrap:
     runs-on: ubuntu-latest
@@ -9,13 +14,69 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Replace placeholders
+      - name: Replace Placeholders
+        shell: bash
         run: |
+          REPO_NAME="${GITHUB_REPOSITORY#*/}"
+          REPOSITORY="${{ github.repository }}"
 
-      - name: Testing bootstrap success
-        run: |
+          echo "Replacing placeholders in file contents..."
 
-      - name: Remove bootstrap workflow
+          find . \
+            -type f \
+            -not -path "./.git/*" \
+            -exec grep -Iq . {} \; \
+            -exec sed -i \
+              -e "s#{{APP_NAME}}#${REPO_NAME}#g" \
+              -e "s#{{REPOSITORY}}#${REPOSITORY}#g" \
+              {} +
+
+          echo "Renaming files and directories..."
+
+          find . -depth \
+            \( -name '*{{APP_NAME}}*' -o -name '*{{REPOSITORY}}*' \) |
+          while read -r path; do
+            new_path="$path"
+
+            new_path="${new_path//'{{APP_NAME}}'/$REPO_NAME}"
+            new_path="${new_path//'{{REPOSITORY}}'/$REPOSITORY}"
+
+            if [ "$path" != "$new_path" ]; then
+              echo "Renaming: $path -> $new_path"
+              mv "$path" "$new_path"
+            fi
+          done
+
+      - name: Verify Bootstrap Success
+        shell: bash
         run: |
+          if grep -R "{{APP_NAME}}" . \
+            --exclude-dir=.git \
+            --exclude-dir=.github; then
+            echo "Found unreplaced {{APP_NAME}} placeholders."
+            exit 1
+          fi
+
+          if grep -R "{{REPOSITORY}}" . \
+            --exclude-dir=.git \
+            --exclude-dir=.github; then
+            echo "Found unreplaced {{REPOSITORY}} placeholders."
+            exit 1
+          fi
+
+      - name: Remove Bootstrap Workflow
+        run: rm -f .github/workflows/bootstrap.yaml
+
+      - name: Commit and Push Changes
+        shell: bash
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add -A
+
+          git commit -m "Bootstrap repository [skip ci]"
+          git push

@@ -1,2 +1,4 @@
-# gitops-config-template
-This is a template repo for a config repo in a gitops dual-repo setup.
+# {{APP_NAME}}
+
+This is the configuration repository for {{APP_NAME}}.
+App repository: https://github.com/{{OWNER}}/{{APP_NAME}}
