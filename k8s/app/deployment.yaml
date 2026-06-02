@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{APP_NAME}}-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{APP_NAME}}-app
+  template:
+    metadata:
+      labels:
+        app: {{APP_NAME}}-app
+    spec:
+      containers:
+        - name: app
+          image: ghcr.io/{{OWNER}}/{{APP_NAME}}:TAG
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          env:
+            - name: DB_HOST
+              value: {{APP_NAME}}-db
+            - name: DB_PASS
+              value: t0psecret
+      imagePullSecrets:
+        - name: regcred

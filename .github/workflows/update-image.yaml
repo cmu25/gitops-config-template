@@ -3,4 +3,25 @@ on:
   repository_dispatch:
     types: [image-update]
 jobs:
-  update-image-tag:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Refresh image pull secret
+        run: |
+          kubectl create secret docker-registry ghcr-secret \
+            --docker-server=ghcr.io \
+            --docker-username=${{ github.repository_owner }} \
+            --docker-password=${{ steps.app-token.outputs.token }} \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Update image tag
+        run: |
+          sed -i "s|image:.*|image: ${{ github.event.client_payload.image }}|g" k8s/app/deployment.yaml
+          git config user.email "ci@github.com"
+          git config user.name "GitHub Actions"
+          git add k8s/app/deployment.yaml
+          git diff --cached --quiet && echo "No changes" && exit 0
+          git commit -m "chore: update image to ${{ github.event.client_payload.sha }} [skip ci]"
+          git push
