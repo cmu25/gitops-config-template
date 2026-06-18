@@ -1,0 +1,13 @@
+[tools]
+kubectl  = "1.29.0"
+helm     = "3.14.0"
+k3d      = "5.6.0"
+kubeseal = "0.27.0"
+gh       = "2.45.0"
+python   = "3.12"
+task     = "3.38.0"
+
+[env]
+# Picked up automatically by mise when running any task command.
+# Real values come from .env (copied from .env.example), loaded by Taskfile.
+_.file = ".env"

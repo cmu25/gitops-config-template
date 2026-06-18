@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{APP_NAME}}-db
+  namespace: {{APP_NAME}}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{APP_NAME}}-db
+  template:
+    metadata:
+      labels:
+        app: {{APP_NAME}}-db
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: {{APP_NAME}}
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{APP_NAME}}-db-secret
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{APP_NAME}}-db-secret
+                  key: password
+          volumeMounts:
+            - name: db-init
+              mountPath: /docker-entrypoint-initdb.d
+      volumes:
+        - name: db-init
+          configMap:
+            name: {{APP_NAME}}-db-init

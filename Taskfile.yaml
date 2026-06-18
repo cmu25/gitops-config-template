@@ -1,0 +1,111 @@
+version: '3'
+
+vars:
+  APP_NAME:
+    sh: python3 scripts/get_app_name.py
+
+dotenv: ['.env']
+
+tasks:
+
+  default:
+    cmds:
+      - task --list
+    silent: true
+
+  # ── First-time setup ──────────────────────────────────────────────────────
+
+  bootstrap:
+    desc: "First-time setup: create cluster, install ArgoCD, register GitOps apps"
+    preconditions:
+      - sh: "test -f .env"
+        msg: ".env not found. Run: cp .env.example .env, then fill in your GitHub App credentials."
+    cmds:
+      - task: check-env
+      - task: cluster-up
+      - task: argocd-install
+      - task: parent-app
+      - task: wait-healthy
+      - task: register-config-repo
+      - echo "Bootstrap complete. Run 'task seal-secrets' to configure database credentials."
+
+  check-env:
+    desc: "Verify required env vars are present"
+    internal: true
+    cmds:
+      - python3 scripts/check_env.py
+
+  # ── Cluster lifecycle ────────────────────────────────────────────────────
+
+  cluster-up:
+    desc: "Create the k3d cluster if it doesn't already exist"
+    status:
+      - k3d cluster get {{.APP_NAME}}
+    cmds:
+      - k3d cluster create {{.APP_NAME}}
+
+  up:
+    desc: "Start a previously-stopped cluster"
+    cmds:
+      - k3d cluster start {{.APP_NAME}}
+
+  down:
+    desc: "Stop the cluster (preserves state, frees resources)"
+    cmds:
+      - k3d cluster stop {{.APP_NAME}}
+
+  status:
+    desc: "Check cluster and workload health"
+    cmds:
+      - kubectl cluster-info
+      - kubectl get nodes
+      - kubectl get applications -n argocd
+
+  reset:
+    desc: "Destroy and recreate the cluster from scratch"
+    prompt: "This will delete the cluster '{{.APP_NAME}}' and recreate it. Continue?"
+    cmds:
+      - k3d cluster delete {{.APP_NAME}}
+      - task: bootstrap
+
+  # ── ArgoCD ────────────────────────────────────────────────────────────────
+
+  argocd-install:
+    desc: "Install ArgoCD via Helm"
+    status:
+      - kubectl get deployment argocd-server -n argocd
+    cmds:
+      - cmd: kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
+        platforms: [linux, darwin]
+      - cmd: kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
+        platforms: [windows]
+      - helm repo add argo https://argoproj.github.io/argo-helm
+      - helm repo update
+      - helm upgrade --install argocd argo/argo-cd --namespace argocd --wait
+
+  parent-app:
+    desc: "Apply the parent ArgoCD Application"
+    cmds:
+      - kubectl apply -f argocd/parent-app.yaml
+
+  wait-healthy:
+    desc: "Wait for the Sealed Secrets controller (deployed via ArgoCD) to be ready"
+    cmds:
+      - kubectl wait --for=condition=available deployment/sealed-secrets -n kube-system --timeout=180s
+
+  register-config-repo:
+    desc: "Register the config repo with ArgoCD using GitHub App credentials from .env"
+    cmds:
+      - python3 scripts/register_config_repo.py {{.APP_NAME}}
+
+  # ── Secrets ──────────────────────────────────────────────────────────────
+
+  seal-secrets:
+    desc: "Seal database credentials into k8s/secrets/ (one-time, or to rotate)"
+    cmds:
+      - python3 scripts/seal_secrets.py {{.APP_NAME}}
+
+  update-kubeconfig-secret:
+    desc: "Push the local k3d kubeconfig to GitHub repo secrets (self-hosted runners only)"
+    cmds:
+      - python3 scripts/update_kubeconfig_secret.py {{.APP_NAME}}

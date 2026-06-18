@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{APP_NAME}}-db-init
+  namespace: {{APP_NAME}}
+data:
+  init.sql: |
+    -- Add your schema here

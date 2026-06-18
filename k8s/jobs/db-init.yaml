@@ -1,0 +1,40 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{APP_NAME}}-db-init
+  namespace: {{APP_NAME}}
+spec:
+  template:
+    spec:
+      containers:
+        - name: db-init
+          image: postgres:16-alpine
+          command: ['psql']
+          args:
+            - -h
+            - {{APP_NAME}}-db
+            - -U
+            - $(POSTGRES_USER)
+            - -d
+            - {{APP_NAME}}
+            - -f
+            - /init/init.sql
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{APP_NAME}}-db-secret
+                  key: username
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{APP_NAME}}-db-secret
+                  key: password
+          volumeMounts:
+            - name: init-script
+              mountPath: /init
+      volumes:
+        - name: init-script
+          configMap:
+            name: {{APP_NAME}}-db-init
+      restartPolicy: OnFailure
