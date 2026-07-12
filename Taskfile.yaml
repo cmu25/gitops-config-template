@@ -24,9 +24,11 @@ tasks:
       - task: check-env
       - task: cluster-up
       - task: argocd-install
+      - task: register-config-repo
+      - task: sealed-secrets-install
+      - task: create-pull-secret
       - task: parent-app
       - task: wait-healthy
-      - task: register-config-repo
       - echo "Bootstrap complete. Run 'task seal-secrets' to configure database credentials."
 
   check-env:
@@ -48,6 +50,7 @@ tasks:
     desc: "Start a previously-stopped cluster"
     cmds:
       - k3d cluster start {{.APP_NAME}}
+      - task: create-pull-secret
 
   down:
     desc: "Stop the cluster (preserves state, frees resources)"
@@ -89,9 +92,9 @@ tasks:
       - kubectl apply -f argocd/parent-app.yaml
 
   wait-healthy:
-    desc: "Wait for the Sealed Secrets controller (deployed via ArgoCD) to be ready"
+    desc: "Wait for the Sealed Secrets controller (installed via Helm) to be ready"
     cmds:
-      - kubectl wait --for=condition=available deployment/sealed-secrets -n kube-system --timeout=180s
+      - kubectl wait --for=condition=available deployment/sealed-secrets-controller -n kube-system --timeout=180s
 
   register-config-repo:
     desc: "Register the config repo with ArgoCD using GitHub App credentials from .env"
@@ -109,3 +112,25 @@ tasks:
     desc: "Push the local k3d kubeconfig to GitHub repo secrets (self-hosted runners only)"
     cmds:
       - python3 scripts/update_kubeconfig_secret.py {{.APP_NAME}}
+
+  sealed-secrets-install:
+    desc: "Install the Sealed Secrets controller (installed via Helm) to be ready"
+    status:
+      - kubectl get deployment sealed-secrets-controller -n kube-system
+    cmds:
+      - helm repo add sealed-secrets https://bitnami.github.io/sealed-secrets
+      - helm repo update
+      - helm upgrade --install sealed-secrets sealed-secrets/sealed-secrets --namespace kube-system --set-string fullnameOverride=sealed-secrets-controller --wait
+
+  create-pull-secret:
+    desc: "Create/refresh the ghcr.io image pull secret from GitHub App credentials"
+    cmds:
+      - cmd: kubectl create namespace {{.APP_NAME}} --dry-run=client -o yaml | kubectl apply -f -
+      - |
+        TOKEN=$(python3 scripts/get_installation_token.py)
+        kubectl create secret docker-registry ghcr-secret \
+          --docker-server=ghcr.io \
+          --docker-username=x-access-token \
+          --docker-password="$TOKEN" \
+          -n {{.APP_NAME}} \
+          --dry-run=client -o yaml | kubectl apply -f -

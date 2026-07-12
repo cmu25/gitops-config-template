@@ -10,6 +10,7 @@
     - macOS: `brew install mise`
     - Linux: `curl https://mise.run | sh`
     - Windows: run from inside WSL2, same as Linux
+Confirm mise is activated in your shell (`which mise` should return a path); if not, add `eval "$(mise activate bash)"` to your `~/.bashrc`
 
 3. **A GitHub App** already created and installed on your repos, with:
     - App ID
@@ -26,7 +27,7 @@ cd <repo>
 
 mise install              # installs kubectl, helm, k3d, kubeseal, gh, task — all pinned versions
 
-cp .env.example .env      # then fill in BOT_ID, BOT_APP_INSTALLATION_ID, BOT_PRIVATE_KEY
+cp .env.example .env      # then fill in BOT_ID, BOT_APP_INSTALLATION_ID, BOT_PRIVATE_KEY. Just paste the content of the .env file you downloaded.
                            # (see .env.example for exactly where to find each value)
 
 task bootstrap             # creates the cluster, installs ArgoCD, registers GitOps apps

@@ -1,4 +1,4 @@
-name: Bootstrap
+name: Update Image
 on:
   repository_dispatch:
     types: [image-update]
